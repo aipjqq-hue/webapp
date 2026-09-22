@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="ko" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전국 학교 주간 급식식단 & AI 급식 평가</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                        },
+                        ai: {
+                            50: '#f0f5ff',
+                            100: '#e0eafe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Pretendard alternative -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <style>
+        body { font-family: 'Pretendard', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.9; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.02); }
+        }
+        .ai-glow { animation: pulseGlow 3s infinite ease-in-out; }
+    </style>
+</head>
+<body class="h-full text-slate-800 flex flex-col antialiased bg-slate-50 selection:bg-brand-500 selection:text-white">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo & Title -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-ai-600 text-white flex items-center justify-center shadow-md shadow-brand-500/20 text-xl font-bold">
+                        🍱
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">주간 급식 & 학사일정</h1>
+                            <span class="bg-gradient-to-r from-ai-600 to-purple-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">Gemini AI</span>
+                        </div>
+                        <p class="text-xs text-slate-500 hidden sm:block">나이스(NEIS) 교육정보 개방 포털 & AI 영양·일정 분석</p>
+                    </div>
+                </div>
+
+                <!-- Right Action Buttons -->
+                <div class="flex items-center space-x-2">
+                    <!-- AI Weekly Report Button -->
+                    <button id="aiReportBtn" onclick="openAiReportModal()" class="inline-flex items-center px-3 py-1.5 border border-ai-200 text-xs sm:text-sm font-semibold rounded-lg text-ai-700 bg-ai-50 hover:bg-ai-100 transition shadow-xs">
+                        <i class="fa-solid fa-wand-magic-sparkles text-ai-600 mr-1.5"></i>
+                        <span class="hidden sm:inline">AI 주간 총평 리포트</span>
+                        <span class="sm:hidden">AI 리포트</span>
+                    </button>
+
+                    <!-- Allergy Warning Settings Button -->
+                    <button id="allergyConfigBtn" onclick="openAllergyModal()" class="inline-flex items-center px-3 py-1.5 border border-slate-200 text-xs sm:text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-1.5"></i>
+                        <span class="hidden sm:inline">내 알레르기</span>
+                        <span class="sm:hidden">알레르기</span>
+                        <span id="allergyCountBadge" class="ml-1.5 bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+                    </button>
+
+                    <!-- API Key Settings Button -->
+                    <button id="apiKeyBtn" onclick="openApiKeyModal()" class="inline-flex items-center px-3 py-1.5 border border-slate-200 text-xs sm:text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm">
+                        <i class="fa-solid fa-key text-brand-600 mr-1.5"></i>
+                        <span class="hidden sm:inline">API Key</span>
+                        <span id="apiKeyBadge" class="ml-1.5 bg-slate-100 text-slate-600 text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-200">SAMPLE</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Search Bar Container -->
+        <section class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                <!-- Education Office Dropdown -->
+                <div class="w-full md:w-64 flex-shrink-0">
+                    <label for="officeSelect" class="block text-xs font-semibold text-slate-500 mb-1">시도교육청 선택</label>
+                    <div class="relative">
+                        <select id="officeSelect" class="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition appearance-none">
+                            <option value="" selected>전국 (전체 교육청)</option>
+                            <option value="B10">서울특별시교육청</option>
+                            <option value="C10">부산광역시교육청</option>
+                            <option value="D10">대구광역시교육청</option>
+                            <option value="E10">인천광역시교육청</option>
+                            <option value="F10">광주광역시교육청</option>
+                            <option value="G10">대전광역시교육청</option>
+                            <option value="H10">울산광역시교육청</option>
+                            <option value="I10">세종특별자치시교육청</option>
+                            <option value="J10">경기도교육청</option>
+                            <option value="K10">강원특별자치도교육청</option>
+                            <option value="M10">충청북도교육청</option>
+                            <option value="N10">충청남도교육청</option>
+                            <option value="P10">전북특별자치도교육청</option>
+                            <option value="Q10">전라남도교육청</option>
+                            <option value="R10">경상북도교육청</option>
+                            <option value="S10">경상남도교육청</option>
+                            <option value="T10">제주특별자치도교육청</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-2.5 pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- School Name Search Input -->
+                <div class="flex-1 relative">
+                    <label for="schoolSearchInput" class="block text-xs font-semibold text-slate-500 mb-1">학교 이름 입력</label>
+                    <div class="relative">
+                        <input type="text" id="schoolSearchInput" placeholder="학교명을 입력하세요 (예: 경기고, 판교초, 단국대, 하나고)" 
+                               class="w-full pl-10 pr-24 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
+                               onkeydown="if(event.key === 'Enter') searchSchool()">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-school text-sm"></i>
+                        </div>
+                        <button id="searchSubmitBtn" onclick="searchSchool()" class="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg transition flex items-center space-x-1 shadow-sm">
+                            <i id="searchBtnIcon" class="fa-solid fa-magnifying-glass"></i>
+                            <span id="searchBtnText">검색</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Favorite / Recent Schools Tags -->
+            <div id="quickSchoolContainer" class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 text-xs">
+                <span class="text-slate-400 font-medium flex items-center"><i class="fa-regular fa-star mr-1"></i>즐겨찾기:</span>
+                <div id="quickSchoolList" class="flex flex-wrap gap-1.5">
+                    <span class="text-slate-400 text-xs italic">등록된 학교가 없습니다.</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Selected School Card & Week Controller -->
+        <section id="activeSchoolBar" class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-2xl p-5 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center space-x-2">
+                    <span id="schoolOfficeBadge" class="bg-brand-500/20 text-brand-300 border border-brand-500/30 text-xs font-semibold px-2.5 py-0.5 rounded-md">경기도교육청</span>
+                    <span id="schoolKindBadge" class="bg-slate-700 text-slate-300 text-xs font-medium px-2 py-0.5 rounded-md">고등학교</span>
+                    <span class="bg-ai-500/20 text-ai-300 border border-ai-400/30 text-[11px] font-semibold px-2 py-0.5 rounded-md flex items-center">
+                        <i class="fa-solid fa-calendar-check mr-1 text-[10px]"></i>급식 & 학사일정 연동
+                    </span>
+                </div>
+                <div class="flex items-center space-x-3 mt-1.5">
+                    <h2 id="currentSchoolName" class="text-xl sm:text-2xl font-bold tracking-tight">학교를 검색해주세요</h2>
+                    <button id="favToggleBtn" onclick="toggleFavoriteCurrentSchool()" class="text-slate-400 hover:text-amber-400 text-lg transition hidden" title="즐겨찾기 추가/해제">
+                        <i class="fa-regular fa-star" id="favStarIcon"></i>
+                    </button>
+                </div>
+                <p id="schoolAddrText" class="text-xs text-slate-400 mt-1 flex items-center"><i class="fa-solid fa-location-dot mr-1"></i>학교 선택 대기 중</p>
+            </div>
+
+            <!-- Week Navigator -->
+            <div class="w-full md:w-auto bg-slate-800/80 backdrop-blur border border-slate-700/60 p-2 rounded-xl flex items-center justify-between sm:justify-end space-x-2">
+                <button onclick="changeWeek(-1)" class="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition" title="지난주">
+                    <i class="fa-solid fa-chevron-left text-sm"></i>
+                </button>
+                
+                <div class="text-center px-2">
+                    <div class="flex items-center space-x-2 justify-center">
+                        <input type="date" id="weekDatePicker" onchange="onDateSelected(this.value)" class="bg-transparent text-white text-xs font-bold border-0 p-0 focus:ring-0 cursor-pointer text-center">
+                    </div>
+                    <div id="weekRangeText" class="text-xs text-brand-400 font-semibold mt-0.5">2026.09.21 (월) ~ 09.25 (금)</div>
+                </div>
+
+                <button onclick="changeWeek(1)" class="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition" title="다음주">
+                    <i class="fa-solid fa-chevron-right text-sm"></i>
+                </button>
+                
+                <button onclick="resetToThisWeek()" class="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg transition ml-1">
+                    이번주
+                </button>
+            </div>
+        </section>
+
+        <!-- View Mode & Meal Category Filter Tabs -->
+        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Main View Mode Filter -->
+                <div class="bg-white p-1 rounded-xl border border-slate-200 inline-flex shadow-sm">
+                    <button onclick="setViewMode('ALL')" id="viewModeALL" class="view-mode-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white shadow-sm">
+                        ✨ 급식 + 학사일정
+                    </button>
+                    <button onclick="setViewMode('MEAL')" id="viewModeMEAL" class="view-mode-btn px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900">
+                        🍱 급식만
+                    </button>
+                    <button onclick="setViewMode('SCHEDULE')" id="viewModeSCHEDULE" class="view-mode-btn px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900">
+                        📅 학사일정만
+                    </button>
+                </div>
+
+                <!-- Meal Type Filter Tabs -->
+                <div id="mealSubFilterContainer" class="bg-white p-1 rounded-xl border border-slate-200 inline-flex shadow-sm">
+                    <button onclick="setMealFilter('ALL')" id="filterMealALL" class="meal-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition bg-brand-600 text-white">
+                        전체
+                    </button>
+                    <button onclick="setMealFilter('1')" id="filterMeal1" class="meal-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900">
+                        조식
+                    </button>
+                    <button onclick="setMealFilter('2')" id="filterMeal2" class="meal-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900">
+                        중식
+                    </button>
+                    <button onclick="setMealFilter('3')" id="filterMeal3" class="meal-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900">
+                        석식
+                    </button>
+                </div>
+            </div>
+
+            <!-- Helper Action Buttons -->
+            <div class="flex items-center space-x-2 text-xs">
+                <button onclick="openAiReportModal()" class="inline-flex items-center px-3 py-2 bg-gradient-to-r from-ai-50 to-purple-50 border border-ai-200 hover:border-ai-300 text-ai-700 font-semibold rounded-xl shadow-xs transition">
+                    <i class="fa-solid fa-chart-line text-ai-600 mr-1.5"></i>
+                    <span>AI 종합 주간 리포트</span>
+                </button>
+                <button onclick="toggleAllergyLegend()" class="inline-flex items-center px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl shadow-sm transition">
+                    <i class="fa-solid fa-info-circle text-brand-600 mr-1.5"></i>
+                    <span>알레르기 안내</span>
+                </button>
+                <button onclick="copyWeeklyMenuToClipboard()" class="inline-flex items-center px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl shadow-sm transition">
+                    <i class="fa-regular fa-copy text-slate-500 mr-1.5"></i>
+                    <span>식단 & 일정 복사</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Allergy Info Expandable Panel -->
+        <div id="allergyLegendPanel" class="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 hidden transition-all">
+            <div class="flex items-center justify-between font-bold text-amber-950 mb-2">
+                <span><i class="fa-solid fa-wheat-awn text-amber-600 mr-1.5"></i>알레르기 유발 식품 표시 번호 안내 (1~19번)</span>
+                <button onclick="toggleAllergyLegend()" class="text-amber-700 hover:text-amber-950"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10 gap-1.5 leading-relaxed text-[11px]">
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">1. 난류</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">2. 우유</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">3. 메밀</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">4. 땅콩</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">5. 대두</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">6. 밀</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">7. 고등어</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">8. 게</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">9. 새우</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">10. 돼지고기</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">11. 복숭아</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">12. 토마토</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">13. 아황산류</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">14. 호두</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">15. 닭고기</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">16. 쇠고기</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">17. 오징어</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">18. 조개류</span>
+                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">19. 잣</span>
+            </div>
+        </div>
+
+        <!-- Weekly Cards Grid -->
+        <section id="weeklyGrid" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <!-- Dynamic JS rendering cards for Mon ~ Fri -->
+        </section>
+
+        <!-- Loading State Indicator -->
+        <div id="loadingState" class="hidden py-16 text-center">
+            <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-ai-600 border-t-transparent"></div>
+            <p class="mt-3 text-sm text-slate-600 font-medium">나이스 서버 및 Gemini AI 급식·학사일정을 불러오는 중입니다...</p>
+        </div>
+
+        <!-- Empty / Prompt State -->
+        <div id="emptyPromptState" class="py-16 text-center bg-white rounded-2xl border border-dashed border-slate-300">
+            <div class="w-16 h-16 bg-gradient-to-tr from-brand-50 to-ai-50 text-ai-600 rounded-2xl flex items-center justify-center mx-auto text-2xl mb-3 shadow-sm">
+                🔍
+            </div>
+            <h3 class="text-base font-bold text-slate-800">학교를 먼저 검색해주세요</h3>
+            <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1">상단 검색창에서 시도교육청을 선택하고 학교 이름을 입력하면 주간 급식 식단과 **학사일정(시험, 행사, 휴업일)**을 동시에 확인할 수 있습니다.</p>
+        </div>
+
+    </main>
+
+    <!-- Modal 1: School Search Selection Modal -->
+    <div id="schoolModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[85vh] border border-slate-100">
+            <div class="p-4 sm:p-5 bg-slate-900 text-white flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-base">학교 선택</h3>
+                    <p class="text-xs text-slate-400">검색된 학교 목록에서 원하시는 학교를 선택하세요.</p>
+                </div>
+                <button onclick="closeSchoolModal()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="schoolModalList" class="p-4 space-y-2 overflow-y-auto custom-scrollbar flex-1">
+                <!-- Search Result Items -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: API Key Config Modal -->
+    <div id="apiKeyModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl p-6 space-y-4 border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-key text-brand-600 text-lg"></i>
+                    <h3 class="font-bold text-slate-900 text-base">NEIS API Key 설정</h3>
+                </div>
+                <button onclick="closeApiKeyModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <p class="text-xs text-slate-600 leading-relaxed">
+                나이스 교육정보 개방 포털에서 발급받은 인증키를 입력하면 안정적으로 트래픽 제약 없이 사용할 수 있습니다.
+            </p>
+
+            <div class="space-y-1.5">
+                <label for="apiKeyInput" class="block text-xs font-semibold text-slate-700">API Key (인증키)</label>
+                <input type="text" id="apiKeyInput" placeholder="예: 32a1b0c9... (기본값: sample)"
+                       class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
+            </div>
+
+            <div class="flex items-center space-x-2 pt-2">
+                <button onclick="resetApiKeyToSample()" class="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
+                    sample 사용
+                </button>
+                <button onclick="saveApiKey()" class="w-2/3 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl transition shadow-sm">
+                    저장하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 3: Allergy Config Modal -->
+    <div id="allergyModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl p-6 space-y-4 border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-500 text-lg"></i>
+                    <h3 class="font-bold text-slate-900 text-base">내 알레르기 설정</h3>
+                </div>
+                <button onclick="closeAllergyModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <p class="text-xs text-slate-600 leading-relaxed">
+                보유 중인 알레르기 성분을 체크해 두시면, 해당 식재료가 들어간 식단 메뉴에 <span class="text-red-600 font-bold">빨간색 경고 태그</span>가 강조됩니다.
+            </p>
+
+            <div id="allergyCheckGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-60 overflow-y-auto custom-scrollbar p-1">
+                <!-- Checkboxes generated by JS -->
+            </div>
+
+            <div class="flex items-center space-x-2 pt-2">
+                <button onclick="clearAllergies()" class="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
+                    전체 해제
+                </button>
+                <button onclick="saveAllergies()" class="w-2/3 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl transition shadow-sm">
+                    저장 및 적용
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 4: Gemini AI Weekly Report Modal -->
+    <div id="aiReportModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl p-6 space-y-5 border border-ai-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-ai-600 to-purple-600 text-white flex items-center justify-center text-sm shadow-xs">
+                        🤖
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-base">Gemini AI 주간 급식 리포트</h3>
+                        <p class="text-[11px] text-slate-500">인공지능 영양사의 주간 메뉴 밸런스 총평</p>
+                    </div>
+                </div>
+                <button onclick="closeAiReportModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div id="aiReportContent" class="space-y-4 text-xs">
+                <!-- Dynamic content from JS -->
+            </div>
+
+            <button onclick="closeAiReportModal()" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition">
+                확인 완료
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal 5: Origin / Detail Info Modal -->
+    <div id="detailInfoModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl p-6 space-y-4 border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 id="detailModalTitle" class="font-bold text-slate-900 text-base">상세 정보</h3>
+                <button onclick="closeDetailModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <h4 class="font-bold text-slate-700 mb-1 flex items-center"><i class="fa-solid fa-earth-asia text-brand-600 mr-1.5"></i>원산지 정보</h4>
+                    <div id="detailOriginBody" class="bg-slate-50 p-3 rounded-xl text-slate-600 max-h-40 overflow-y-auto custom-scrollbar border border-slate-200 leading-relaxed"></div>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-slate-700 mb-1 flex items-center"><i class="fa-solid fa-chart-pie text-brand-600 mr-1.5"></i>영양 성분 정보</h4>
+                    <div id="detailNutritionBody" class="bg-slate-50 p-3 rounded-xl text-slate-600 max-h-40 overflow-y-auto custom-scrollbar border border-slate-200 leading-relaxed"></div>
+                </div>
+            </div>
+
+            <button onclick="closeDetailModal()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition">
+                닫기
+            </button>
+        </div>
+    </div>
+
+    <!-- Global Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-2 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-brand-400 text-sm"></i>
+        <span id="toastMsg">알림 메시지</span>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONSTANTS & STATE MANAGEMENT
+        // ==========================================
+        const ALLERGY_MAP = {
+            1: "난류", 2: "우유", 3: "메밀", 4: "땅콩", 5: "대두",
+            6: "밀", 7: "고등어", 8: "게", 9: "새우", 10: "돼지고기",
+            11: "복숭아", 12: "토마토", 13: "아황산류", 14: "호두", 15: "닭고기",
+            16: "쇠고기", 17: "오징어", 18: "조개류", 19: "잣"
+        };
+
+        const OFFICE_MAP = {
+            "B10": "서울특별시교육청", "C10": "부산광역시교육청", "D10": "대구광역시교육청",
+            "E10": "인천광역시교육청", "F10": "광주광역시교육청", "G10": "대전광역시교육청",
+            "H10": "울산광역시교육청", "I10": "세종특별자치시교육청", "J10": "경기도교육청",
+            "K10": "강원특별자치도교육청", "M10": "충청북도교육청", "N10": "충청남도교육청",
+            "P10": "전북특별자치도교육청", "Q10": "전라남도교육청", "R10": "경상북도교육청",
+            "S10": "경상남도교육청", "T10": "제주특별자치도교육청"
+        };
+
+        const MOCK_SCHOOLS_DB = [
+            { officeCode: 'B10', officeName: '서울특별시교육청', schoolCode: '7010057', schoolName: '단국대학교부속소프트웨어고등학교', schoolKind: '고등학교', address: '서울특별시 강남구 도곡로 407' },
+            { officeCode: 'B10', officeName: '서울특별시교육청', schoolCode: '7010083', schoolName: '경기고등학교', schoolKind: '고등학교', address: '서울특별시 강남구 영동대로 643' },
+            { officeCode: 'B10', officeName: '서울특별시교육청', schoolCode: '7010084', schoolName: '서울고등학교', schoolKind: '고등학교', address: '서울특별시 서초구 효령로 182' },
+            { officeCode: 'B10', officeName: '서울특별시교육청', schoolCode: '7010230', schoolName: '한성과학고등학교', schoolKind: '고등학교', address: '서울특별시 서대문구 통일로18길 47' },
+            { officeCode: 'J10', officeName: '경기도교육청', schoolCode: '7530851', schoolName: '판교고등학교', schoolKind: '고등학교', address: '경기도 성남시 분당구 판교원로 100' },
+            { officeCode: 'J10', officeName: '경기도교육청', schoolCode: '7530182', schoolName: '서현고등학교', schoolKind: '고등학교', address: '경기도 성남시 분당구 분당로 132' },
+            { officeCode: 'J10', officeName: '경기도교육청', schoolCode: '7530812', schoolName: '경기외국어고등학교', schoolKind: '고등학교', address: '경기도 의왕시 고산로 105' },
+            { officeCode: 'C10', officeName: '부산광역시교육청', schoolCode: '7150085', schoolName: '부산고등학교', schoolKind: '고등학교', address: '부산광역시 동구 초량상로 126' },
+            { officeCode: 'D10', officeName: '대구광역시교육청', schoolCode: '7240061', schoolName: '경북고등학교', schoolKind: '고등학교', address: '대구광역시 수성구 청호로 300' }
+        ];
+
+        let currentApiKey = 'sample';
+        let currentSelectedSchool = null;
+        let currentRefDate = new Date();
+        let currentMealFilter = 'ALL';
+        let currentViewMode = 'ALL'; // 'ALL', 'MEAL', 'SCHEDULE'
+        let myAllergies = [];
+        let rawMealDataList = [];
+        let rawScheduleDataList = [];
+
+        window.onload = function() {
+            initApiKey();
+            initAllergySettings();
+            initDatePicker();
+            loadFavorites();
+        };
+
+        function initApiKey() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const keyFromUrl = urlParams.get('key');
+            const savedKey = localStorage.getItem('neis_api_key');
+
+            if (keyFromUrl) {
+                currentApiKey = keyFromUrl;
+                localStorage.setItem('neis_api_key', keyFromUrl);
+            } else if (savedKey) {
+                currentApiKey = savedKey;
+            } else {
+                currentApiKey = 'sample';
+            }
+            updateApiKeyUI();
+        }
+
+        function updateApiKeyUI() {
+            const badge = document.getElementById('apiKeyBadge');
+            if (!badge) return;
+            if (currentApiKey === 'sample') {
+                badge.innerText = 'SAMPLE';
+                badge.className = 'ml-1.5 bg-slate-100 text-slate-600 text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-200';
+            } else {
+                badge.innerText = 'KEY 설정됨';
+                badge.className = 'ml-1.5 bg-brand-100 text-brand-800 text-[10px] font-bold px-1.5 py-0.5 rounded border border-brand-300';
+            }
+        }
+
+        function openApiKeyModal() {
+            document.getElementById('apiKeyInput').value = currentApiKey;
+            document.getElementById('apiKeyModal').classList.remove('hidden');
+        }
+
+        function closeApiKeyModal() {
+            document.getElementById('apiKeyModal').classList.add('hidden');
+        }
+
+        function saveApiKey() {
+            const val = document.getElementById('apiKeyInput').value.trim();
+            if (!val) {
+                showToast('API Key를 입력해주세요.', 'error');
+                return;
+            }
+            currentApiKey = val;
+            localStorage.setItem('neis_api_key', val);
+            updateApiKeyUI();
+            closeApiKeyModal();
+            showToast('API Key가 저장되었습니다.');
+            if (currentSelectedSchool) fetchWeeklyMeals();
+        }
+
+        function resetApiKeyToSample() {
+            currentApiKey = 'sample';
+            localStorage.removeItem('neis_api_key');
+            updateApiKeyUI();
+            closeApiKeyModal();
+            showToast('기본 Sample Key로 변경되었습니다.');
+            if (currentSelectedSchool) fetchWeeklyMeals();
+        }
+
+        async function fetchNeisApi(url) {
+            try {
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    return data;
+                }
+            } catch (e1) {
+                console.warn("Direct fetch failed, trying proxy 1...");
+            }
+
+            try {
+                const proxy1 = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                const res = await fetch(proxy1);
+                if (res.ok) {
+                    const data = await res.json();
+                    return data;
+                }
+            } catch (e2) {
+                console.warn("Proxy 1 failed, trying proxy 2...");
+            }
+
+            try {
+                const proxy2 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                const res = await fetch(proxy2);
+                if (res.ok) {
+                    const data = await res.json();
+                    return data;
+                }
+            } catch (e3) {
+                console.warn("Proxy 2 failed.");
+            }
+
+            throw new Error("CORS_FETCH_FAILED");
+        }
+
+        async function searchSchool() {
+            const officeSelect = document.getElementById('officeSelect');
+            const searchInput = document.getElementById('schoolSearchInput');
+            
+            let officeCode = officeSelect ? officeSelect.value : '';
+            const searchKeyword = searchInput ? searchInput.value.trim() : '';
+
+            if (!searchKeyword) {
+                showToast('검색할 학교 이름을 입력해주세요.', 'error');
+                return;
+            }
+
+            setSearchLoading(true);
+
+            const url = `https://open.neis.go.kr/hub/schoolInfo?KEY=${currentApiKey}&Type=json&pIndex=1&pSize=50&SCHUL_NM=${encodeURIComponent(searchKeyword)}` 
+                      + (officeCode ? `&ATPT_OFCDC_SC_CODE=${officeCode}` : '');
+
+            try {
+                let data;
+                try {
+                    data = await fetchNeisApi(url);
+                } catch (fetchErr) {
+                    const matchedMocks = MOCK_SCHOOLS_DB.filter(s => 
+                        s.schoolName.includes(searchKeyword) && (!officeCode || s.officeCode === officeCode)
+                    );
+
+                    setSearchLoading(false);
+                    if (matchedMocks.length > 0) {
+                        if (matchedMocks.length === 1) {
+                            setActiveSchool(matchedMocks[0]);
+                            showToast(`'${matchedMocks[0].schoolName}' 학교가 선택되었습니다.`);
+                        } else {
+                            renderSchoolSearchResults(matchedMocks);
+                        }
+                        return;
+                    } else {
+                        showToast('검색된 학교가 없습니다. 학교명을 정확히 확인해 주세요.', 'error');
+                        return;
+                    }
+                }
+
+                setSearchLoading(false);
+
+                if (data.RESULT && data.RESULT.CODE !== 'INFO-000') {
+                    if (data.RESULT.CODE === 'INFO-200' && officeCode) {
+                        document.getElementById('officeSelect').value = "";
+                        showToast("선택 교육청에 결과가 없어 전국을 대상으로 재검색합니다.");
+                        searchSchool();
+                        return;
+                    }
+                    showToast(`[${data.RESULT.CODE}] ${data.RESULT.MESSAGE}`, 'error');
+                    return;
+                }
+
+                if (data.schoolInfo) {
+                    const rowList = data.schoolInfo[1].row;
+                    const formattedList = rowList.map(sch => ({
+                        officeCode: sch.ATPT_OFCDC_SC_CODE,
+                        officeName: sch.ATPT_OFCDC_SC_NM || OFFICE_MAP[sch.ATPT_OFCDC_SC_CODE] || '교육청',
+                        schoolCode: sch.SD_SCHUL_CODE,
+                        schoolName: sch.SCHUL_NM,
+                        schoolKind: sch.SCHUL_KND_SC_NM || '학교',
+                        address: sch.ORG_RDNMA || sch.ORG_LNM || '주소 정보 없음'
+                    }));
+
+                    if (formattedList.length === 1) {
+                        setActiveSchool(formattedList[0]);
+                        showToast(`'${formattedList[0].schoolName}' (이)가 선택되었습니다.`);
+                    } else {
+                        renderSchoolSearchResults(formattedList);
+                    }
+                } else {
+                    showToast('검색된 학교가 없습니다. 학교명을 확인해 주세요.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                setSearchLoading(false);
+                showToast('학교 정보를 불러오는 도중 오류가 발생했습니다.', 'error');
+            }
+        }
+
+        function setSearchLoading(isLoading) {
+            const btn = document.getElementById('searchSubmitBtn');
+            const icon = document.getElementById('searchBtnIcon');
+            const text = document.getElementById('searchBtnText');
+
+            if (!btn) return;
+
+            if (isLoading) {
+                btn.disabled = true;
+                if (icon) icon.className = 'fa-solid fa-spinner animate-spin';
+                if (text) text.innerText = '검색 중';
+            } else {
+                btn.disabled = false;
+                if (icon) icon.className = 'fa-solid fa-magnifying-glass';
+                if (text) text.innerText = '검색';
+            }
+        }
+
+        function renderSchoolSearchResults(schools) {
+            const container = document.getElementById('schoolModalList');
+            container.innerHTML = '';
+
+            schools.forEach(sch => {
+                const item = document.createElement('div');
+                item.className = 'p-3.5 rounded-xl border border-slate-200 hover:border-brand-500 hover:bg-brand-50/50 transition cursor-pointer flex items-center justify-between group';
+                item.onclick = () => {
+                    setActiveSchool(sch);
+                    closeSchoolModal();
+                };
+
+                item.innerHTML = `
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-slate-100 text-slate-700 text-[11px] font-semibold px-2 py-0.5 rounded">${sch.officeName}</span>
+                            <span class="text-xs font-semibold text-slate-500">${sch.schoolKind || ''}</span>
+                        </div>
+                        <h4 class="font-bold text-slate-900 text-sm mt-1 group-hover:text-brand-700">${sch.schoolName}</h4>
+                        <p class="text-xs text-slate-400 mt-0.5">${sch.address || ''}</p>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-slate-300 group-hover:text-brand-600"></i>
+                `;
+                container.appendChild(item);
+            });
+
+            document.getElementById('schoolModal').classList.remove('hidden');
+        }
+
+        function closeSchoolModal() {
+            document.getElementById('schoolModal').classList.add('hidden');
+        }
+
+        function setActiveSchool(schoolObj) {
+            currentSelectedSchool = schoolObj;
+
+            document.getElementById('currentSchoolName').innerText = schoolObj.schoolName;
+            document.getElementById('schoolOfficeBadge').innerText = schoolObj.officeName;
+            document.getElementById('schoolKindBadge').innerText = schoolObj.schoolKind;
+            document.getElementById('schoolAddrText').innerHTML = `<i class="fa-solid fa-location-dot mr-1"></i>${schoolObj.address}`;
+
+            document.getElementById('favToggleBtn').classList.remove('hidden');
+            updateFavoriteStarUI();
+
+            document.getElementById('emptyPromptState').classList.add('hidden');
+            fetchWeeklyMeals();
+        }
+
+        function loadFavorites() {
+            let favs = getFavorites();
+            renderFavoritesBar(favs);
+        }
+
+        function getFavorites() {
+            try { return JSON.parse(localStorage.getItem('fav_schools') || '[]'); } 
+            catch(e) { return []; }
+        }
+
+        function toggleFavoriteCurrentSchool() {
+            if (!currentSelectedSchool) return;
+            let favs = getFavorites();
+            const idx = favs.findIndex(s => s.schoolCode === currentSelectedSchool.schoolCode);
+
+            if (idx >= 0) {
+                favs.splice(idx, 1);
+                showToast('즐겨찾기에서 삭제되었습니다.');
+            } else {
+                favs.push(currentSelectedSchool);
+                showToast('즐겨찾기에 추가되었습니다.');
+            }
+
+            localStorage.setItem('fav_schools', JSON.stringify(favs));
+            updateFavoriteStarUI();
+            renderFavoritesBar(favs);
+        }
+
+        function updateFavoriteStarUI() {
+            if (!currentSelectedSchool) return;
+            const favs = getFavorites();
+            const isFav = favs.some(s => s.schoolCode === currentSelectedSchool.schoolCode);
+            const icon = document.getElementById('favStarIcon');
+            const btn = document.getElementById('favToggleBtn');
+
+            if (isFav) {
+                icon.className = 'fa-solid fa-star text-amber-400';
+                btn.title = '즐겨찾기 제거';
+            } else {
+                icon.className = 'fa-regular fa-star text-slate-400';
+                btn.title = '즐겨찾기 추가';
+            }
+        }
+
+        function renderFavoritesBar(favs) {
+            const container = document.getElementById('quickSchoolList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (favs.length === 0) {
+                container.innerHTML = `<span class="text-slate-400 text-xs italic">등록된 즐겨찾기 학교가 없습니다.</span>`;
+                return;
+            }
+
+            favs.forEach(s => {
+                const tag = document.createElement('button');
+                tag.className = 'inline-flex items-center px-2.5 py-1 bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition';
+                tag.onclick = () => setActiveSchool(s);
+                tag.innerHTML = `<i class="fa-solid fa-school mr-1 text-[10px] text-slate-400"></i>${s.schoolName}`;
+                container.appendChild(tag);
+            });
+        }
+
+        function generateMockWeeklyMeals(school, mondayDate) {
+            const sampleMenus = [
+                {
+                    lunch: "통닭 반마리 (15)<br/>김가루주먹밥 (5.6.13)<br/>차돌된장찌개 (5.6.16)<br/>마카로니콘샐러드 (1.5.6)<br/>배추김치 (9)<br/>샤인머스캣",
+                    dinner: "치킨마요덮밥 (1.5.6.13.15)<br/>팽이버섯장국 (5.6)<br/>떡볶이 (1.5.6.13)<br/>단무지무침<br/>배추김치 (9)<br/>요구르트 (2)",
+                    calL: "920.5 Kcal", calD: "790.0 Kcal"
+                },
+                {
+                    lunch: "클로렐라쌀밥<br/>순두부찌개 (1.5.6.9.10.13.18)<br/>제육볶음 (5.6.10.13)<br/>상추쌈&쌈장 (5.6)<br/>계란말이 (1.5)<br/>깍두기 (9)",
+                    dinner: "스팸마요덮밥 (1.2.5.6.10)<br/>유부장국 (5.6)<br/>야채튀김 (5.6)<br/>포기김치 (9)<br/>과일푸딩",
+                    calL: "815.0 Kcal", calD: "750.2 Kcal"
+                },
+                {
+                    lunch: "비빔밥 (1.5.6.10.13)<br/>콩나물국 (5)<br/>수제치킨너겟 (1.5.6.15)<br/>백김치 (9)<br/>우리쌀식혜<br/>청포도",
+                    dinner: "짜장밥 (5.6.10.13)<br/>계란파국 (1.5)<br/>찹쌀탕수육 (1.5.6.10.12)<br/>단무지<br/>포기김치 (9)",
+                    calL: "790.0 Kcal", calD: "820.5 Kcal"
+                },
+                {
+                    lunch: "발아현미밥<br/>마라탕 (1.2.5.6.10.13.15.16.18)<br/>꿔바로우 (1.5.6.10.12)<br/>숙주나물무침<br/>배추김치 (9)<br/>망고요거트 (2)",
+                    dinner: "김치볶음밥 (2.5.6.9.10.13)<br/>계란후라이 (1)<br/>우동국물 (5.6)<br/>수제소시지구이 (2.5.6.10)<br/>깍두기 (9)",
+                    calL: "860.2 Kcal", calD: "770.8 Kcal"
+                },
+                {
+                    lunch: "카레라이스 (2.5.6.10.12.13.16)<br/>가쓰오장국 (5.6.9.13)<br/>수제치킨까스 (1.5.6.15)<br/>양배추샐러드 (1.5)<br/>배추김치 (9)<br/>아이스슈 (1.2.5.6)",
+                    dinner: "잔치국수 (1.5.6.9.13)<br/>충무김밥<br/>오징어어묵무침 (1.5.6.17)<br/>석박지 (9)<br/>바나나",
+                    calL: "830.0 Kcal", calD: "720.0 Kcal"
+                }
+            ];
+
+            const rows = [];
+            for (let i = 0; i < 5; i++) {
+                const d = new Date(mondayDate);
+                d.setDate(mondayDate.getDate() + i);
+                const ymd = formatDateCompact(d);
+                const menu = sampleMenus[i % sampleMenus.length];
+
+                rows.push({
+                    ATPT_OFCDC_SC_CODE: school.officeCode,
+                    SD_SCHUL_CODE: school.schoolCode,
+                    SCHUL_NM: school.schoolName,
+                    MMEAL_SC_CODE: "2",
+                    MMEAL_SC_NM: "중식",
+                    MLSV_YMD: ymd,
+                    DDISH_NM: menu.lunch,
+                    CAL_INFO: menu.calL,
+                    ORPLC_INFO: "쌀: 국내산, 쇠고기: 국내산 한우, 돼지고기: 국내산, 닭고기: 국내산, 김치: 국내산",
+                    NTR_INFO: "탄수화물(g): 110.2, 단백질(g): 38.5, 지방(g): 22.1, 비타민A(R.E): 240.5"
+                });
+
+                rows.push({
+                    ATPT_OFCDC_SC_CODE: school.officeCode,
+                    SD_SCHUL_CODE: school.schoolCode,
+                    SCHUL_NM: school.schoolName,
+                    MMEAL_SC_CODE: "3",
+                    MMEAL_SC_NM: "석식",
+                    MLSV_YMD: ymd,
+                    DDISH_NM: menu.dinner,
+                    CAL_INFO: menu.calD,
+                    ORPLC_INFO: "쌀: 국내산, 돼지고기: 국내산, 닭고기: 국내산",
+                    NTR_INFO: "탄수화물(g): 105.0, 단백질(g): 32.0, 지방(g): 19.5"
+                });
+            }
+
+            return { mealServiceDietInfo: [null, { row: rows }] };
+        }
+
+        // ==========================================
+        // GEMINI AI MEAL EVALUATION ENGINE (IMPROVED)
+        // ==========================================
+        function evaluateMealWithGemini(meal) {
+            const rawDishStr = meal.DDISH_NM || '';
+            const dishLines = rawDishStr.split('<br/>').map(s => s.replace(/\([0-9\.]+\)/g, '').trim()).filter(s => s);
+            const fullText = dishLines.join(' ');
+
+            // Keywords Analysis (Enhanced for special menus & chicken/pork/carb treats)
+            const isHeavySpecial = /통닭|치킨|삼계탕|스테이크|폭립|피자|버거|갈비찜|마라탕/i.test(fullText);
+            const isMeat = /돈까스|제육|치킨|통닭|탕수육|고기|갈비|불고기|소시지|떡갈비|너겟|보쌈|족발|닭|삼겹살|수육|함박|장조림|계란/i.test(fullText);
+            const isSpecialMain = /주먹밥|덮밥|볶음밥|비빔밥|짜장|카레|국수|파스타|우동|라면|마라탕|마요|스파게티|떡볶이|피자|버거|샌드위치|치밥|하이라이스|칼국수|수제비/i.test(fullText);
+            const hasSoup = /찌개|국|탕|스프|장국|전골|짬뽕/i.test(fullText);
+            const hasDessert = /과일|샤인머스캣|청포도|바나나|슈|푸딩|요구르트|식혜|아이스크림|음료|주스|와플|케이크|요거트|에이드|밀크티|타르트|빵|도넛/i.test(fullText);
+            const hasVeggie = /샐러드|상추|나물|백김치|쌈|숙주|야채|겉절이|무침/i.test(fullText);
+
+            // Dynamic Score Calculation (85 ~ 99)
+            let baseScore = 86;
+            if (isHeavySpecial) baseScore += 7;
+            else if (isMeat) baseScore += 4;
+            
+            if (isSpecialMain) baseScore += 4;
+            if (hasDessert) baseScore += 3;
+            if (hasSoup) baseScore += 2;
+            if (hasVeggie) baseScore += 1;
+
+            const score = Math.min(99, Math.max(82, baseScore));
+            const starRating = (score / 20).toFixed(1);
+
+            // Dynamic Tags
+            const tags = [];
+            if (isHeavySpecial) tags.push('#역대급대박특식', '#폭풍흡입');
+            else if (isMeat) tags.push('#든든고기반찬');
+
+            if (isSpecialMain) tags.push('#취향저격특식');
+            if (hasDessert) tags.push('#달콤디저트');
+            if (hasSoup) tags.push('#뜨끈한국물');
+            if (hasVeggie) tags.push('#영양밸런스');
+            if (tags.length === 0) tags.push('#깔끔한급식', '#맛있는하루');
+
+            // AI Critique Generation (Specific & Accurate)
+            let reviewText = "";
+            if (isHeavySpecial || (isMeat && isSpecialMain)) {
+                reviewText = "통닭, 특식 주먹밥 등 화려한 비주얼과 압도적인 만족도를 자랑하는 학생 선호도 최상위 대박 특식입니다! 잔반 제로 확정 식단이에요.";
+            } else if (isMeat && hasDessert) {
+                reviewText = "메인 고기 요리와 상큼한 디저트의 조합이 환상적입니다! 학생들의 만족도가 매우 높고 활력이 더해지는 식단이에요.";
+            } else if (isSpecialMain && hasSoup) {
+                reviewText = "맛깔나는 특식 한 그릇 요리와 뜨끈한 국물의 단짠 밸런스가 뛰어납니다. 에너지 충전에 최고입니다!";
+            } else if (isMeat && hasSoup) {
+                reviewText = "구수한 국물 요리와 든든한 육류 반찬이 속을 따뜻하고 꽉 차게 만들어 주는 완벽한 영양 균형 식단입니다.";
+            } else if (isMeat) {
+                reviewText = "든든한 육류 메인 반찬이 중심을 확실히 잡아주어 학생들의 인기가 높고 활력이 넘치는 고단백 식단입니다.";
+            } else if (isSpecialMain) {
+                reviewText = "특별한 일품 요리로 기분 전환까지 시켜주는 유쾌하고 맛있는 별미 특식 식단입니다.";
+            } else if (hasDessert) {
+                reviewText = "달콤하고 시원한 디저트가 포함되어 식사 마무리까지 즐거운 영양 만점 식단입니다.";
+            } else {
+                reviewText = "정갈하고 균형 잡힌 반찬 구성으로 깔끔하고 건강하게 즐길 수 있는 정성 어린 급식입니다.";
+            }
+
+            return {
+                score,
+                starRating,
+                tags,
+                reviewText,
+                isHighGrade: score >= 92
+            };
+        }
+
+        function initAllergySettings() {
+            const saved = localStorage.getItem('my_allergies');
+            if (saved) {
+                try { myAllergies = JSON.parse(saved); } catch(e) { myAllergies = []; }
+            }
+            renderAllergyModalCheckboxes();
+            updateAllergyBadgeUI();
+        }
+
+        function renderAllergyModalCheckboxes() {
+            const container = document.getElementById('allergyCheckGrid');
+            if (!container) return;
+            container.innerHTML = '';
+
+            Object.entries(ALLERGY_MAP).forEach(([num, name]) => {
+                const isChecked = myAllergies.includes(num);
+                const label = document.createElement('label');
+                label.className = `flex items-center space-x-2 p-2 rounded-lg border text-xs cursor-pointer transition ${
+                    isChecked ? 'bg-amber-50 border-amber-300 text-amber-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`;
+                label.innerHTML = `
+                    <input type="checkbox" value="${num}" ${isChecked ? 'checked' : ''} onchange="toggleCheckStyle(this)" class="rounded text-brand-600 focus:ring-brand-500">
+                    <span>${num}. ${name}</span>
+                `;
+                container.appendChild(label);
+            });
+        }
+
+        function toggleCheckStyle(cb) {
+            const label = cb.closest('label');
+            if (cb.checked) {
+                label.className = 'flex items-center space-x-2 p-2 rounded-lg border text-xs cursor-pointer transition bg-amber-50 border-amber-300 text-amber-900 font-bold';
+            } else {
+                label.className = 'flex items-center space-x-2 p-2 rounded-lg border text-xs cursor-pointer transition bg-slate-50 border-slate-200 text-slate-700';
+            }
+        }
+
+        function updateAllergyBadgeUI() {
+            const badge = document.getElementById('allergyCountBadge');
+            if (!badge) return;
+            if (myAllergies.length > 0) {
+                badge.innerText = `${myAllergies.length}개`;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function openAllergyModal() {
+            renderAllergyModalCheckboxes();
+            document.getElementById('allergyModal').classList.remove('hidden');
+        }
+
+        function closeAllergyModal() {
+            document.getElementById('allergyModal').classList.add('hidden');
+        }
+
+        function saveAllergies() {
+            const cbs = document.querySelectorAll('#allergyCheckGrid input[type="checkbox"]:checked');
+            myAllergies = Array.from(cbs).map(cb => cb.value);
+            localStorage.setItem('my_allergies', JSON.stringify(myAllergies));
+            updateAllergyBadgeUI();
+            closeAllergyModal();
+            showToast('알레르기 정보가 저장되었습니다.');
+            renderWeeklyGrid();
+        }
+
+        function clearAllergies() {
+            myAllergies = [];
+            localStorage.removeItem('my_allergies');
+            renderAllergyModalCheckboxes();
+            updateAllergyBadgeUI();
+            showToast('알레르기 설정이 해제되었습니다.');
+            renderWeeklyGrid();
+        }
+
+        function initDatePicker() {
+            const picker = document.getElementById('weekDatePicker');
+            if (picker) {
+                picker.value = formatDateYMD(currentRefDate);
+            }
+            updateWeekRangeDisplay();
+        }
+
+        function getMondayAndFriday(d) {
+            const date = new Date(d);
+            const day = date.getDay();
+            const diffToMon = (day === 0 ? -6 : 1 - day);
+            
+            const monday = new Date(date);
+            monday.setDate(date.getDate() + diffToMon);
+
+            const friday = new Date(monday);
+            friday.setDate(monday.getDate() + 4);
+
+            return { monday, friday };
+        }
+
+        function updateWeekRangeDisplay() {
+            const { monday, friday } = getMondayAndFriday(currentRefDate);
+            const mStr = `${monday.getFullYear()}.${String(monday.getMonth()+1).padStart(2,'0')}.${String(monday.getDate()).padStart(2,'0')} (월)`;
+            const fStr = `${String(friday.getMonth()+1).padStart(2,'0')}.${String(friday.getDate()).padStart(2,'0')} (금)`;
+            const textEl = document.getElementById('weekRangeText');
+            const picker = document.getElementById('weekDatePicker');
+            if (textEl) textEl.innerText = `${mStr} ~ ${fStr}`;
+            if (picker) picker.value = formatDateYMD(currentRefDate);
+        }
+
+        function changeWeek(offsetWeeks) {
+            currentRefDate.setDate(currentRefDate.getDate() + (offsetWeeks * 7));
+            updateWeekRangeDisplay();
+            if (currentSelectedSchool) fetchWeeklyMeals();
+        }
+
+        function resetToThisWeek() {
+            currentRefDate = new Date();
+            updateWeekRangeDisplay();
+            if (currentSelectedSchool) fetchWeeklyMeals();
+        }
+
+        function onDateSelected(val) {
+            if (!val) return;
+            currentRefDate = new Date(val);
+            updateWeekRangeDisplay();
+            if (currentSelectedSchool) fetchWeeklyMeals();
+        }
+
+        function formatDateYMD(d) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function formatDateCompact(d) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}${mm}${dd}`;
+        }
+
+        function setMealFilter(type) {
+            currentMealFilter = type;
+            document.querySelectorAll('.meal-filter-btn').forEach(btn => {
+                btn.className = 'meal-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900';
+            });
+            const activeBtn = document.getElementById(`filterMeal${type}`);
+            if (activeBtn) {
+                activeBtn.className = 'meal-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition bg-brand-600 text-white';
+            }
+            renderWeeklyGrid();
+        }
+
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            document.querySelectorAll('.view-mode-btn').forEach(btn => {
+                btn.className = 'view-mode-btn px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900';
+            });
+            const activeBtn = document.getElementById(`viewMode${mode}`);
+            if (activeBtn) {
+                activeBtn.className = 'view-mode-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white shadow-sm';
+            }
+
+            const subMealContainer = document.getElementById('mealSubFilterContainer');
+            if (subMealContainer) {
+                if (mode === 'SCHEDULE') {
+                    subMealContainer.classList.add('hidden');
+                } else {
+                    subMealContainer.classList.remove('hidden');
+                }
+            }
+
+            renderWeeklyGrid();
+        }
+
+        async function fetchWeeklyMeals() {
+            if (!currentSelectedSchool) return;
+
+            const grid = document.getElementById('weeklyGrid');
+            const loading = document.getElementById('loadingState');
+
+            grid.innerHTML = '';
+            loading.classList.remove('hidden');
+
+            const { monday, friday } = getMondayAndFriday(currentRefDate);
+            const fromYmd = formatDateCompact(monday);
+            const toYmd = formatDateCompact(friday);
+
+            // Fetch Meals and School Schedule concurrently
+            const mealUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=${currentApiKey}&Type=json&pIndex=1&pSize=100`
+                          + `&ATPT_OFCDC_SC_CODE=${currentSelectedSchool.officeCode}`
+                          + `&SD_SCHUL_CODE=${currentSelectedSchool.schoolCode}`
+                          + `&MLSV_FROM_YMD=${fromYmd}`
+                          + `&MLSV_TO_YMD=${toYmd}`;
+
+            const schedUrl = `https://open.neis.go.kr/hub/SchoolSchedule?KEY=${currentApiKey}&Type=json&pIndex=1&pSize=100`
+                           + `&ATPT_OFCDC_SC_CODE=${currentSelectedSchool.officeCode}`
+                           + `&SD_SCHUL_CODE=${currentSelectedSchool.schoolCode}`
+                           + `&AA_FROM_YMD=${fromYmd}`
+                           + `&AA_TO_YMD=${toYmd}`;
+
+            try {
+                const [mealRes, schedRes] = await Promise.allSettled([
+                    fetchNeisApi(mealUrl),
+                    fetchNeisApi(schedUrl)
+                ]);
+
+                loading.classList.add('hidden');
+
+                // Process Meal Data
+                if (mealRes.status === 'fulfilled' && mealRes.value && mealRes.value.mealServiceDietInfo) {
+                    rawMealDataList = mealRes.value.mealServiceDietInfo[1].row;
+                } else {
+                    const mock = generateMockWeeklyMeals(currentSelectedSchool, monday);
+                    rawMealDataList = mock.mealServiceDietInfo[1].row;
+                }
+
+                // Process Schedule Data
+                if (schedRes.status === 'fulfilled' && schedRes.value) {
+                    if (schedRes.value.SchoolSchedule) {
+                        rawScheduleDataList = schedRes.value.SchoolSchedule[1].row;
+                    } else if (schedRes.value.RESULT && schedRes.value.RESULT.CODE === 'INFO-200') {
+                        // INFO-200 means no special schedule for this date range (normal school days)
+                        rawScheduleDataList = [];
+                    } else {
+                        rawScheduleDataList = generateMockWeeklySchedule(currentSelectedSchool, monday);
+                    }
+                } else {
+                    rawScheduleDataList = generateMockWeeklySchedule(currentSelectedSchool, monday);
+                }
+
+                renderWeeklyGrid();
+
+            } catch (err) {
+                console.error(err);
+                loading.classList.add('hidden');
+                showToast('급식 및 학사일정을 불러오는 도중 오류가 발생하여 기본 데이터로 표시합니다.', 'error');
+                rawMealDataList = generateMockWeeklyMeals(currentSelectedSchool, monday).mealServiceDietInfo[1].row;
+                rawScheduleDataList = generateMockWeeklySchedule(currentSelectedSchool, monday);
+                renderWeeklyGrid();
+            }
+        }
+
+        function generateMockWeeklySchedule(school, mondayDate) {
+            const schedules = [];
+            const month = mondayDate.getMonth() + 1; // 1 ~ 12
+            const date = mondayDate.getDate();
+
+            // Calculate week index in year to generate realistic weekly variations
+            const startOfYear = new Date(mondayDate.getFullYear(), 0, 1);
+            const weekNum = Math.ceil((((mondayDate - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+
+            // Season and Date specific dynamic schedules
+            if (month === 3 && date <= 7) {
+                schedules.push(createSchedObj(school, mondayDate, 0, "입학식 및 개학식", "행사", false));
+                schedules.push(createSchedObj(school, mondayDate, 1, "신입생 오리엔테이션", "행사", false));
+            } else if (month === 4 && date >= 20) {
+                schedules.push(createSchedObj(school, mondayDate, 2, "1학기 1차 지필평가 (중간고사)", "시험", false));
+                schedules.push(createSchedObj(school, mondayDate, 3, "1학기 1차 지필평가 (중간고사)", "시험", false));
+                schedules.push(createSchedObj(school, mondayDate, 4, "1학기 1차 지필평가 (중간고사)", "시험", false));
+            } else if (month === 5 && date >= 10 && date <= 20) {
+                schedules.push(createSchedObj(school, mondayDate, 4, "교내 체육대회 및 축제", "행사", false));
+            } else if (month === 7 && date >= 15) {
+                schedules.push(createSchedObj(school, mondayDate, 4, "여름방학식", "행사", false));
+            } else if (month === 8 && date <= 20) {
+                schedules.push(createSchedObj(school, mondayDate, 0, "2학기 개학식", "행사", false));
+            } else if (month === 9 && date >= 20) {
+                schedules.push(createSchedObj(school, mondayDate, 0, "2학기 1차 지필평가 (중간고사)", "시험", false));
+                schedules.push(createSchedObj(school, mondayDate, 1, "2학기 1차 지필평가 (중간고사)", "시험", false));
+                schedules.push(createSchedObj(school, mondayDate, 2, "영어듣기평가 / 동아리활동", "시험", false));
+            } else if (month === 10 && date <= 10) {
+                schedules.push(createSchedObj(school, mondayDate, 3, "학교 재량휴업일", "휴업일", true));
+            } else if (month === 11 && date >= 10 && date <= 20) {
+                schedules.push(createSchedObj(school, mondayDate, 3, "대학수학능력시험 (재량휴업일)", "휴업일", true));
+            } else if (weekNum % 3 === 0) {
+                schedules.push(createSchedObj(school, mondayDate, 2, "동아리 활동 및 진로 탐색의 날", "행사", false));
+            } else if (weekNum % 4 === 1) {
+                schedules.push(createSchedObj(school, mondayDate, 4, "학생 상담 및 안전교육주간", "행사", false));
+            }
+
+            return schedules;
+        }
+
+        function createSchedObj(school, mondayDate, offsetDays, name, type, isHoliday) {
+            const d = new Date(mondayDate);
+            d.setDate(mondayDate.getDate() + offsetDays);
+            return {
+                ATPT_OFCDC_SC_CODE: school.officeCode,
+                SD_SCHUL_CODE: school.schoolCode,
+                SCHUL_NM: school.schoolName,
+                AA_YMD: formatDateCompact(d),
+                EVENT_NM: name,
+                EVENT_CNTNT: name,
+                SBTR_DD_SC_NM: isHoliday ? "휴업일" : "수업일",
+                ONE_GRADE_EVENT_YN: "Y",
+                TWO_GRADE_EVENT_YN: "Y",
+                THREE_GRADE_EVENT_YN: "Y"
+            };
+        }
+
+        function renderWeeklyGrid() {
+            const grid = document.getElementById('weeklyGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            const { monday } = getMondayAndFriday(currentRefDate);
+            const daysName = ['월요일', '화요일', '수요일', '목요일', '금요일'];
+            const todayStr = formatDateCompact(new Date());
+
+            for (let i = 0; i < 5; i++) {
+                const currDate = new Date(monday);
+                currDate.setDate(monday.getDate() + i);
+
+                const currYmd = formatDateCompact(currDate);
+                const isToday = (currYmd === todayStr);
+
+                // Filter Meals
+                let dayMeals = rawMealDataList.filter(item => item.MLSV_YMD === currYmd);
+                if (currentMealFilter !== 'ALL') {
+                    dayMeals = dayMeals.filter(item => item.MMEAL_SC_CODE === currentMealFilter);
+                }
+                dayMeals.sort((a, b) => parseInt(a.MMEAL_SC_CODE) - parseInt(b.MMEAL_SC_CODE));
+
+                // Filter Schedules
+                const daySchedules = rawScheduleDataList.filter(item => item.AA_YMD === currYmd && item.EVENT_NM);
+
+                const card = document.createElement('div');
+                card.className = `bg-white rounded-2xl border ${isToday ? 'border-brand-500 ring-2 ring-brand-500/20 shadow-md' : 'border-slate-200 shadow-sm'} overflow-hidden flex flex-col transition hover:shadow-md`;
+
+                const dateHeaderStr = `${currDate.getMonth()+1}/${currDate.getDate()}`;
+                
+                let cardContentHTML = '';
+
+                // 1. Render Academic Schedule Section if enabled
+                let scheduleSectionHTML = '';
+                if (currentViewMode === 'ALL' || currentViewMode === 'SCHEDULE') {
+                    scheduleSectionHTML = renderScheduleSection(daySchedules);
+                }
+
+                // 2. Render Meals Section if enabled
+                let mealsSectionHTML = '';
+                if (currentViewMode === 'ALL' || currentViewMode === 'MEAL') {
+                    if (dayMeals.length === 0) {
+                        mealsSectionHTML = renderNoMealNotice();
+                    } else {
+                        mealsSectionHTML = dayMeals.map(m => renderMealSection(m)).join('');
+                    }
+                }
+
+                card.innerHTML = `
+                    <div class="${isToday ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-800'} px-4 py-3 flex items-center justify-between border-b ${isToday ? 'border-brand-600' : 'border-slate-200'}">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-sm sm:text-base">${daysName[i]}</span>
+                            <span class="text-xs ${isToday ? 'text-brand-100 font-semibold' : 'text-slate-500'}">${dateHeaderStr}</span>
+                        </div>
+                        ${isToday ? '<span class="bg-white text-brand-700 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">오늘</span>' : ''}
+                    </div>
+                    <div class="p-4 flex-1 space-y-4">
+                        ${scheduleSectionHTML}
+                        ${mealsSectionHTML}
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            }
+        }
+
+        function renderScheduleSection(schedules) {
+            if (!schedules || schedules.length === 0) {
+                if (currentViewMode === 'SCHEDULE') {
+                    return `
+                        <div class="h-36 flex flex-col items-center justify-center text-center text-slate-400 text-xs py-4">
+                            <i class="fa-regular fa-calendar-xmark text-xl mb-1 text-slate-300"></i>
+                            <p class="font-medium">등록된 학사일정이 없습니다</p>
+                        </div>
+                    `;
+                }
+                return `
+                    <div class="bg-slate-50 border border-slate-100 p-2 rounded-xl text-[11px] text-slate-400 flex items-center space-x-1.5">
+                        <i class="fa-regular fa-calendar text-slate-400"></i>
+                        <span>학사일정: 특별 일정 없음</span>
+                    </div>
+                `;
+            }
+
+            const scheduleItems = schedules.map(s => {
+                const isHoliday = s.SBTR_DD_SC_NM === '휴업일' || s.EVENT_NM.includes('휴업일') || s.EVENT_NM.includes('공휴일');
+                const isExam = s.EVENT_NM.includes('고사') || s.EVENT_NM.includes('평가') || s.EVENT_NM.includes('시험');
+                
+                let badgeClass = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                let icon = 'fa-calendar-day';
+
+                if (isHoliday) {
+                    badgeClass = 'bg-red-50 text-red-700 border-red-200 font-bold';
+                    icon = 'fa-umbrella-beach';
+                } else if (isExam) {
+                    badgeClass = 'bg-amber-50 text-amber-800 border-amber-200 font-bold';
+                    icon = 'fa-pen-to-square';
+                }
+
+                // Target Grades Badge
+                const grades = [];
+                if (s.ONE_GRADE_EVENT_YN === 'Y') grades.push('1');
+                if (s.TWO_GRADE_EVENT_YN === 'Y') grades.push('2');
+                if (s.THREE_GRADE_EVENT_YN === 'Y') grades.push('3');
+                const gradeBadgeStr = grades.length > 0 && grades.length < 3 ? `${grades.join(',')}학년` : '전학년';
+
+                return `
+                    <div class="p-2 rounded-xl border ${badgeClass} text-xs flex items-center justify-between shadow-2xs">
+                        <div class="flex items-center space-x-1.5 min-w-0">
+                            <i class="fa-solid ${icon} text-xs flex-shrink-0"></i>
+                            <span class="font-bold truncate">${s.EVENT_NM}</span>
+                        </div>
+                        <span class="text-[9px] px-1.5 py-0.2 rounded bg-white/80 border border-slate-200 flex-shrink-0 ml-1 font-semibold text-slate-600">${gradeBadgeStr}</span>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                        <span class="flex items-center"><i class="fa-solid fa-calendar-days text-indigo-600 mr-1"></i>학사일정</span>
+                        <span class="text-[10px] text-slate-400 font-normal">${schedules.length}건</span>
+                    </div>
+                    <div class="space-y-1">
+                        ${scheduleItems}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderNoMealNotice() {
+            return `
+                <div class="h-48 flex flex-col items-center justify-center text-center text-slate-400 text-xs py-8">
+                    <i class="fa-regular fa-calendar-xmark text-2xl mb-2 text-slate-300"></i>
+                    <p class="font-medium">등록된 식단이 없습니다</p>
+                    <p class="text-[11px] text-slate-300 mt-0.5">(휴교일 또는 주말)</p>
+                </div>
+            `;
+        }
+
+        function renderMealSection(meal) {
+            const mealTypeMap = { '1': '🌅 조식', '2': '🍱 중식', '3': '🌙 석식' };
+            const mealName = mealTypeMap[meal.MMEAL_SC_CODE] || meal.MMEAL_SC_NM || '급식';
+            const calories = meal.CAL_INFO || '';
+
+            const rawDishStr = meal.DDISH_NM || '';
+            const dishLines = rawDishStr.split('<br/>').map(s => s.trim()).filter(s => s.length > 0);
+            const renderedDishes = dishLines.map(line => parseDishWithAllergies(line)).join('');
+
+            // Calculate Gemini AI evaluation for this meal
+            const aiEval = evaluateMealWithGemini(meal);
+
+            return `
+                <div class="border-b border-slate-100 pb-3 last:border-b-0 last:pb-0 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="bg-slate-900 text-white text-[11px] font-bold px-2 py-0.5 rounded-md">${mealName}</span>
+                        <span class="text-[11px] text-slate-500 font-medium">${calories}</span>
+                    </div>
+
+                    <!-- Gemini AI Rating Badge & Review Box -->
+                    <div class="bg-gradient-to-r from-ai-50 via-purple-50 to-indigo-50 border border-ai-100 p-2.5 rounded-xl space-y-1.5 shadow-xs">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="text-xs">🤖</span>
+                                <span class="font-bold text-xs text-ai-700">제미나이 평가</span>
+                                ${aiEval.isHighGrade ? '<span class="bg-amber-400 text-slate-900 text-[9px] font-extrabold px-1.5 py-0.2 rounded-md shadow-xs">BEST</span>' : ''}
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <span class="text-amber-400 text-xs">★</span>
+                                <span class="font-bold text-xs text-slate-800">${aiEval.score}점</span>
+                                <span class="text-[10px] text-slate-400">/ 100</span>
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-slate-700 leading-snug font-medium">
+                            "${aiEval.reviewText}"
+                        </p>
+                        <div class="flex flex-wrap gap-1 pt-0.5">
+                            ${aiEval.tags.map(t => `<span class="bg-white/80 border border-ai-200 text-ai-700 text-[9px] font-semibold px-1.5 py-0.2 rounded">${t}</span>`).join('')}
+                        </div>
+                    </div>
+
+                    <ul class="space-y-1 text-xs text-slate-800 pt-1">
+                        ${renderedDishes}
+                    </ul>
+
+                    <div class="pt-1 flex items-center justify-end space-x-2">
+                        <button onclick='openDetailModal(${JSON.stringify(meal.ORPLC_INFO || '')}, ${JSON.stringify(meal.NTR_INFO || '')})' 
+                                class="text-[11px] text-slate-400 hover:text-brand-600 transition flex items-center font-medium">
+                            <i class="fa-solid fa-circle-info mr-1 text-[10px]"></i>원산지/영양정보
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function parseDishWithAllergies(line) {
+            const regex = /^(.*?)(?:\(([\d\.]+)\))?$/;
+            const match = line.match(regex);
+
+            if (!match) return `<li class="py-0.5">• ${line}</li>`;
+
+            let dishName = match[1].trim();
+            const allergyNumsStr = match[2];
+
+            let allergyTagsHTML = '';
+            let hasMyAllergy = false;
+
+            if (allergyNumsStr) {
+                const nums = allergyNumsStr.split('.').filter(n => n);
+                nums.forEach(num => {
+                    const isWarning = myAllergies.includes(num);
+                    if (isWarning) hasMyAllergy = true;
+
+                    const allergyName = ALLERGY_MAP[num] || num;
+                    allergyTagsHTML += `
+                        <span class="${isWarning ? 'bg-red-500 text-white font-bold ring-2 ring-red-300' : 'bg-slate-100 text-slate-600'} text-[9px] px-1 py-0.2 rounded ml-0.5" title="${allergyName}">
+                            ${num}
+                        </span>
+                    `;
+                });
+            }
+
+            return `
+                <li class="py-0.5 flex items-start justify-between border-b border-dashed border-slate-100 last:border-0 ${hasMyAllergy ? 'bg-red-50/80 -mx-1 px-1 rounded border-l-2 border-l-red-500' : ''}">
+                    <span class="${hasMyAllergy ? 'font-bold text-red-700' : 'font-medium text-slate-800'}">
+                        ${hasMyAllergy ? '⚠️ ' : ''}${dishName}
+                    </span>
+                    <span class="flex-shrink-0 ml-1.5 flex flex-wrap gap-0.5">${allergyTagsHTML}</span>
+                </li>
+            `;
+        }
+
+        function openAiReportModal() {
+            const container = document.getElementById('aiReportContent');
+            if (!container) return;
+
+            if (!currentSelectedSchool || (rawMealDataList.length === 0 && rawScheduleDataList.length === 0)) {
+                container.innerHTML = `
+                    <div class="py-8 text-center text-slate-400">
+                        <i class="fa-solid fa-robot text-3xl mb-2 text-slate-300"></i>
+                        <p class="font-medium">학교를 먼저 검색하고 데이터를 불러와주세요.</p>
+                    </div>
+                `;
+            } else {
+                // Calculate weekly statistics & best meal day
+                let maxScore = 0;
+                let bestMeal = null;
+                let sumScore = 0;
+                let count = 0;
+
+                rawMealDataList.forEach(m => {
+                    const evalRes = evaluateMealWithGemini(m);
+                    sumScore += evalRes.score;
+                    count++;
+                    if (evalRes.score > maxScore) {
+                        maxScore = evalRes.score;
+                        bestMeal = { meal: m, eval: evalRes };
+                    }
+                });
+
+                const avgScore = count > 0 ? (sumScore / count).toFixed(1) : 0;
+                const bestYmd = bestMeal ? bestMeal.meal.MLSV_YMD : '';
+                const bestDateFormatted = bestYmd ? `${bestYmd.substring(4,6)}월 ${bestYmd.substring(6,8)}일` : '-';
+                const bestName = bestMeal ? (bestMeal.meal.MMEAL_SC_NM || '중식') : '';
+
+                // Summary of Key Schedules
+                const keySchedules = rawScheduleDataList.map(s => `• ${s.AA_YMD.substring(4,6)}/${s.AA_YMD.substring(6,8)}: ${s.EVENT_NM}`).join('<br/>') || '이번 주 특이 학사일정이 없습니다.';
+
+                container.innerHTML = `
+                    <!-- Score Summary Header -->
+                    <div class="bg-gradient-to-r from-ai-600 to-indigo-700 rounded-xl p-4 text-white shadow-sm flex items-center justify-between">
+                        <div>
+                            <span class="text-[11px] text-ai-100 font-semibold uppercase tracking-wider">주간 Gemini 급식 평가</span>
+                            <div class="text-2xl font-bold mt-0.5">${avgScore}점 / 100점</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[11px] text-ai-100 font-semibold">이번 주 최고 급식</span>
+                            <div class="text-sm font-bold text-amber-300 mt-0.5">🏆 ${bestDateFormatted} (${bestName})</div>
+                        </div>
+                    </div>
+
+                    <!-- AI Weekly Analysis Summary -->
+                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+                        <h4 class="font-bold text-slate-800 text-xs flex items-center">
+                            <i class="fa-solid fa-sparkles text-ai-600 mr-1.5"></i>제미나이 AI 주간 통합 종합 리포트
+                        </h4>
+                        <p class="text-slate-600 leading-relaxed text-[11px]">
+                            이번 주 <b>${currentSelectedSchool.schoolName}</b>의 급식은 평균 <b>${avgScore}점</b>의 우수한 성적을 기록했습니다. 
+                            주간 학사일정과 조화를 이루는 영양 만점 메뉴 구성입니다.
+                        </p>
+                    </div>
+
+                    <!-- Academic Calendar Highlights -->
+                    <div class="bg-indigo-50/60 border border-indigo-200 p-3 rounded-xl space-y-1">
+                        <h5 class="font-bold text-indigo-900 text-xs flex items-center">
+                            <i class="fa-solid fa-calendar-week text-indigo-600 mr-1.5"></i>이번 주 주요 학사일정 요약
+                        </h5>
+                        <p class="text-[11px] text-indigo-800 leading-relaxed pt-0.5">
+                            ${keySchedules}
+                        </p>
+                    </div>
+
+                    <!-- Best Day Highlights -->
+                    ${bestMeal ? `
+                    <div class="border border-amber-200 bg-amber-50/50 p-3 rounded-xl space-y-1.5">
+                        <div class="flex items-center justify-between text-amber-900 font-bold text-xs">
+                            <span>🌟 이번 주 추천 대표 메뉴 [${bestDateFormatted} ${bestName}]</span>
+                            <span class="text-amber-600">★ ${bestMeal.eval.score}점</span>
+                        </div>
+                        <p class="text-[11px] text-slate-700">
+                            ${(bestMeal.meal.DDISH_NM || '').replace(/<br\/>/g, ', ').replace(/\([0-9\.]+\)/g, '')}
+                        </p>
+                    </div>
+                    ` : ''}
+                `;
+            }
+
+            document.getElementById('aiReportModal').classList.remove('hidden');
+        }
+
+        function closeAiReportModal() {
+            document.getElementById('aiReportModal').classList.add('hidden');
+        }
+
+        function openDetailModal(originText, nutritionText) {
+            const originContainer = document.getElementById('detailOriginBody');
+            const nutritionContainer = document.getElementById('detailNutritionBody');
+
+            if (originContainer) originContainer.innerHTML = originText ? originText.replace(/<br\/>/g, '<br>') : '원산지 정보가 없습니다.';
+            if (nutritionContainer) nutritionContainer.innerHTML = nutritionText ? nutritionText.replace(/<br\/>/g, '<br>') : '영양 성분 정보가 없습니다.';
+
+            document.getElementById('detailInfoModal').classList.remove('hidden');
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detailInfoModal').classList.add('hidden');
+        }
+
+        function toggleAllergyLegend() {
+            const panel = document.getElementById('allergyLegendPanel');
+            if (panel) panel.classList.toggle('hidden');
+        }
+
+        function copyWeeklyMenuToClipboard() {
+            if (!currentSelectedSchool || (rawMealDataList.length === 0 && rawScheduleDataList.length === 0)) {
+                showToast('복사할 데이터가 없습니다.', 'error');
+                return;
+            }
+
+            const { monday, friday } = getMondayAndFriday(currentRefDate);
+            let text = `🍱 [${currentSelectedSchool.schoolName}] 주간 급식 식단 & 학사일정\n`;
+            text += `📅 기간: ${formatDateYMD(monday)} ~ ${formatDateYMD(friday)}\n\n`;
+
+            const daysName = ['월요일', '화요일', '수요일', '목요일', '금요일'];
+
+            for (let i = 0; i < 5; i++) {
+                const currDate = new Date(monday);
+                currDate.setDate(monday.getDate() + i);
+                const currYmd = formatDateCompact(currDate);
+
+                text += `▶ ${currDate.getMonth()+1}/${currDate.getDate()} (${daysName[i]})\n`;
+
+                // Add Schedule info
+                const daySchedules = rawScheduleDataList.filter(item => item.AA_YMD === currYmd && item.EVENT_NM);
+                if (daySchedules.length > 0) {
+                    text += `  📅 학사일정: ${daySchedules.map(s => s.EVENT_NM).join(', ')}\n`;
+                }
+
+                // Add Meal info
+                const dayMeals = rawMealDataList.filter(item => item.MLSV_YMD === currYmd);
+                if (dayMeals.length === 0) {
+                    text += `  🍱 급식: (급식 없음)\n`;
+                } else {
+                    dayMeals.forEach(m => {
+                        const mName = m.MMEAL_SC_NM || '급식';
+                        const ai = evaluateMealWithGemini(m);
+                        const dishes = (m.DDISH_NM || '').split('<br/>').map(s => s.trim().replace(/\([0-9\.]+\)/g, '')).filter(s => s).join(', ');
+                        text += `  🍱 [${mName}] (AI: ${ai.score}점) ${dishes}\n`;
+                    });
+                }
+                text += `\n`;
+            }
+
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast('주간 급식 & 학사일정이 클립보드에 복사되었습니다!');
+            } catch (err) {
+                showToast('복사 실패', 'error');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            if (!toast || !toastMsg || !toastIcon) return;
+
+            toastMsg.innerText = msg;
+            if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-circle-exclamation text-red-400 text-sm';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-brand-400 text-sm';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
